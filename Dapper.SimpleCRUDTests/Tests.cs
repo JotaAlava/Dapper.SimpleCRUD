@@ -44,6 +44,8 @@ namespace Dapper.SimpleCRUDTests
         public int CarId { get; set; }
         public int? Id { get; set; }
         public string Make { get; set; }
+        public string Color { get; set; }
+        public int AgeInYears { get; set; }
         public string Model { get; set; }
         #endregion
 
@@ -329,7 +331,7 @@ namespace Dapper.SimpleCRUDTests
         {
             using (var connection = GetOpenConnection())
             {
-                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic" });
+                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30});
                 id.IsEqualTo(1);
             }
         }
@@ -338,7 +340,7 @@ namespace Dapper.SimpleCRUDTests
         {
             using (var connection = GetOpenConnection())
             {
-                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic", Users = new List<User> { new User { Age = 12, Name = "test" } } });
+                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30, Users = new List<User> { new User { Age = 12, Name = "test" } } });
                 id.IsEqualTo(2);
             }
         }
@@ -347,7 +349,7 @@ namespace Dapper.SimpleCRUDTests
         {
             using (var connection = GetOpenConnection())
             {
-                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic" });
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
                 var newitem = connection.Get<Car>(newid);
                 newitem.Make = "Toyota";
                 connection.Update(newitem);
@@ -361,7 +363,7 @@ namespace Dapper.SimpleCRUDTests
         {
             using (var connection = GetOpenConnection())
             {
-                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic" });
+                var id = connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
                 var car = connection.Get<Car>(id);
                 connection.Delete(car);
                 connection.Get<Car>(id).IsNull();
@@ -793,5 +795,176 @@ namespace Dapper.SimpleCRUDTests
             }
         }
 
+        public void TestUpdate_PartialUpdate_FirstProperty()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "Make" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+
+                // Act
+                newitem.Make = "Toyota";
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo("Toyota");
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_ChangedPropertyIsntIncluded_ThereforeItIsNotChanged()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "Model" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+
+                // Act
+                newitem.Make = "Toyota";
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo("Honda");
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_LastProperty()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "AgeInYears" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+
+                // Act
+                newitem.AgeInYears = 60;
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.AgeInYears.IsEqualTo(60);
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_FirstAndLastProperties()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "Make", "AgeInYears" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+                var testString = "Toyota";
+                var testAge = 60;
+
+                // Act
+                newitem.Make = testString;
+                newitem.AgeInYears = testAge;
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo(testString);
+                updateditem.AgeInYears.IsEqualTo(testAge);
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_MultipleProperties_Sanity()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "Make", "Model", "AgeInYears" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+                var testString = "FRS";
+                var testAge = 60;
+
+                // Act
+                newitem.Make = testString;
+                newitem.Model = testString;
+                newitem.AgeInYears = testAge;
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo(testString);
+                updateditem.Model.IsEqualTo(testString);
+                updateditem.AgeInYears.IsEqualTo(testAge);
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_AllProperties()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { "Make", "Model", "Color", "AgeInYears" };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+
+                var testString = "FRS";
+                var testAge = 60;
+
+                // Act
+                newitem.Make = testString;
+                newitem.Model = testString;
+                newitem.Color = testString;
+
+                newitem.AgeInYears = testAge;
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo(testString);
+                updateditem.Model.IsEqualTo(testString);
+
+                updateditem.Color.IsEqualTo(testString);
+                updateditem.AgeInYears.IsEqualTo(testAge);
+                connection.Delete<Car>(newid);
+            }
+        }
+
+        public void TestUpdate_PartialUpdate_NoProperties_WillUpdateAll()
+        {
+            using (var connection = GetOpenConnection())
+            {
+                // Arrange
+                string[] testArray = { };
+                var newid = (int)connection.Insert(new Car { Make = "Honda", Model = "Civic", Color = "Black", AgeInYears = 30 });
+                var newitem = connection.Get<Car>(newid);
+
+                var testString = "FRS";
+                var testAge = 60;
+
+                // Act
+                newitem.Make = testString;
+                newitem.Model = testString;
+                newitem.Color = testString;
+
+                newitem.AgeInYears = testAge;
+                connection.Update(newitem, null, null, testArray);
+
+                // Assert
+                var updateditem = connection.Get<Car>(newid);
+                updateditem.Make.IsEqualTo(testString);
+                updateditem.Model.IsEqualTo(testString);
+
+                updateditem.Color.IsEqualTo(testString);
+                updateditem.AgeInYears.IsEqualTo(testAge);
+                connection.Delete<Car>(newid);
+            }
+        }
     }
 }
