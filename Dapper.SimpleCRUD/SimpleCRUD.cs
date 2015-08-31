@@ -355,8 +355,9 @@ namespace Dapper
         /// <param name="entityToUpdate"></param>
         /// <param name="transaction"></param>
         /// <param name="commandTimeout"></param>
+        /// <param name="propertiesToUpdate">List of properties to NOT update.</param>
         /// <returns>The number of effected records</returns>
-        public static int Update(this IDbConnection connection, object entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null)
+        public static int Update(this IDbConnection connection, object entityToUpdate, IDbTransaction transaction = null, int? commandTimeout = null, string[] propertiesToUpdate = null)
         {
             var idProps = GetIdProperties(entityToUpdate).ToList();
 
@@ -369,7 +370,7 @@ namespace Dapper
             sb.AppendFormat("update {0}", name);
 
             sb.AppendFormat(" set ");
-            BuildUpdateSet(entityToUpdate, sb);
+            BuildUpdateSet(entityToUpdate, sb, propertiesToUpdate);
             sb.Append(" where ");
             BuildWhere(sb, idProps, entityToUpdate);
 
@@ -517,18 +518,61 @@ namespace Dapper
         }
 
 
-        //build update statement based on list on an entity
-        private static void BuildUpdateSet(object entityToUpdate, StringBuilder sb)
+        /// <summary>
+        /// Build update statement based on list on an entity.
+        /// Allows for a list of properties to update - therefore adding the ability to do partial updates.
+        /// </summary>
+        /// <param name="entityToUpdate"></param>
+        /// <param name="sb"></param>
+        /// <param name="propertiesToUpdate"></param>
+        private static void BuildUpdateSet(object entityToUpdate, StringBuilder sb, string[] propertiesToUpdate = null)
         {
             var nonIdProps = GetUpdateableProperties(entityToUpdate).ToArray();
-
-            for (var i = 0; i < nonIdProps.Length; i++)
+            if (propertiesToUpdate == null || propertiesToUpdate.Length == 0)
             {
-                var property = nonIdProps[i];
+                for (var i = 0; i < nonIdProps.Length; i++)
+                {
+                    var property = nonIdProps[i];
 
-                sb.AppendFormat("{0} = @{1}", GetColumnName(property), property.Name);
-                if (i < nonIdProps.Length - 1)
-                    sb.AppendFormat(", ");
+                    sb.AppendFormat("{0} = @{1}", GetColumnName(property), property.Name);
+                    if (i < nonIdProps.Length - 1)
+                        sb.AppendFormat(", ");
+                }
+            }
+            else
+            {
+                PropertyInfo lastProperty;
+                var listOfContainedProperties = new List<PropertyInfo>();
+
+                foreach (var property in nonIdProps)
+                {
+                    string propertyName = GetColumnName(property);
+
+                    if (GetColumnName(property)[0] == '[')
+                    {
+                        propertyName = GetColumnName(property).Substring(1, GetColumnName(property).Length - 2);
+                    }
+
+                    if (propertiesToUpdate.Contains(propertyName))
+                    {
+                        listOfContainedProperties.Add(property);
+                    }
+                }
+
+                lastProperty = listOfContainedProperties.Last();
+
+                foreach (var includedProperty in listOfContainedProperties)
+                {
+                    if (includedProperty.Equals(lastProperty))
+                    {
+                        sb.AppendFormat("{0} = @{1}", GetColumnName(includedProperty), includedProperty.Name);
+                    }
+                    else
+                    {
+                        sb.AppendFormat("{0} = @{1}", GetColumnName(includedProperty), includedProperty.Name);
+                        sb.AppendFormat(", ");
+                    }
+                }
             }
         }
 
